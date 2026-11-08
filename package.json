@@ -1,0 +1,56 @@
+{
+  "name": "@local/dsh-vim-nav",
+  "version": "1.0.0",
+  "description": "Vim-style keyboard navigation for the Harness Web UI",
+  "license": "MIT",
+  "author": "Endermy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Endermy/dsh-vim-nav.git"
+  },
+  "homepage": "https://github.com/Endermy/dsh-vim-nav#readme",
+  "bugs": {
+    "url": "https://github.com/Endermy/dsh-vim-nav/issues"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "cordis",
+    "cordis-plugin",
+    "vim",
+    "keyboard-navigation"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "check": "node --check index.js && node --check client.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-conversation",
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  }
+}

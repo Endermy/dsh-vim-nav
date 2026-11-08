@@ -1,0 +1,3 @@
+- insert:
+    - id: vim-nav
+      name: '@local/dsh-vim-nav'
