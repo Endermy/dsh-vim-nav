@@ -43,6 +43,7 @@ window.__ModuleLoader__.load({
       'mode.hint': 'HINT',
       'mode.edit': 'editing',
       'hint.select': 'select link',
+      'browser.return': 'Focus conversation',
       'panel.workspace': 'Workspace',
       'panel.conversation': 'Conversation',
       'panel.browser': 'Browser',
@@ -54,6 +55,7 @@ window.__ModuleLoader__.load({
       'mode.hint': 'HINT',
       'mode.edit': '编辑中',
       'hint.select': '选择链接',
+      'browser.return': '回到对话',
       'panel.workspace': '工作区',
       'panel.conversation': '对话',
       'panel.browser': '浏览器',
@@ -1039,6 +1041,26 @@ window.__ModuleLoader__.load({
         return false;
       }
 
+      function returnFromBrowser() {
+        const browser = browserPageElement();
+        if (browser !== null) {
+          try { browser.blur(); } catch { /* ignore */ }
+        }
+        store.set({ mode: 'normal', panel: 'conversation' });
+        const main = panelElement('main');
+        if (main !== null) {
+          const previous = main.getAttribute('tabindex');
+          if (previous === null) main.setAttribute('tabindex', '-1');
+          try {
+            main.focus({ preventScroll: true });
+          } catch {
+            try { main.focus(); } catch { /* ignore */ }
+          }
+          if (previous === null) main.removeAttribute('tabindex');
+        }
+        return true;
+      }
+
       function focusRight() {
         const panel = store.get().panel;
         if (panel === 'workspace') return focusConversation();
@@ -1483,7 +1505,7 @@ window.__ModuleLoader__.load({
         driver.stop();
       }
 
-      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, dispose };
+      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, returnFromBrowser, dispose };
     }
 
     // #endregion
@@ -1728,6 +1750,7 @@ window.__ModuleLoader__.load({
       const primary = mac ? '⌘' : 'Ctrl';
       ctx.effect(() => {
         let release = null;
+        let returnRelease = null;
         const options = {
           id: 'vim-nav.keep-ctrl-w',
           label: () => t('ctrlW.keep'),
@@ -1735,14 +1758,43 @@ window.__ModuleLoader__.load({
           group: 'application',
           bindings: [{ code: 'KeyW', modifiers: ['primary'] }],
         };
+        const returnCommand = {
+          id: 'vim-nav.browser-return',
+          label: () => t('browser.return'),
+          aliases: ['focus conversation', 'browser return'],
+          defaults: {
+            'desktop:linux': { code: 'KeyH', modifiers: ['alt'] },
+            'desktop:windows': { code: 'KeyH', modifiers: ['alt'] },
+            'desktop:macos': { code: 'KeyH', modifiers: ['control'] },
+          },
+          regions: ['page'],
+          modals: [],
+          resolve: () => ({
+            status: 'handled',
+            run: () => {
+              controller.returnFromBrowser();
+            },
+          }),
+        };
         const sync = () => {
           if (browserContentFocused()) {
             if (release !== null) {
               release();
               release = null;
             }
-          } else if (release === null) {
-            release = ctx.shortcuts.registerFixed(options);
+            if (returnRelease === null) {
+              try {
+                returnRelease = ctx.shortcuts.register(returnCommand);
+              } catch {
+                returnRelease = null;
+              }
+            }
+          } else {
+            if (returnRelease !== null) {
+              returnRelease();
+              returnRelease = null;
+            }
+            if (release === null) release = ctx.shortcuts.registerFixed(options);
           }
         };
         sync();
@@ -1753,13 +1805,17 @@ window.__ModuleLoader__.load({
         document.addEventListener('focusout', schedule, true);
         window.addEventListener('blur', schedule);
         // Focus can enter a webview/iframe without a bubbling focus event; poll
-        // cheaply so Ctrl+W is released before the reader tries to close the page.
+        // so the return command and Ctrl+W follow the guest's focus.
         const timer = window.setInterval(sync, 250);
         return () => {
           window.clearInterval(timer);
           document.removeEventListener('focusin', schedule, true);
           document.removeEventListener('focusout', schedule, true);
           window.removeEventListener('blur', schedule);
+          if (returnRelease !== null) {
+            returnRelease();
+            returnRelease = null;
+          }
           if (release !== null) {
             release();
             release = null;

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-11-09
+
+- Browser focus return: while the built-in Browser page has focus, the plugin registers
+  a "Focus conversation" command (`Alt+H` on Linux/Windows, `Ctrl+H` on macOS). It blurs
+  the webview, focuses the conversation panel with `NORMAL`, and disposes itself once
+  focus leaves the Browser.
+- `h`/`l` in the Browser page remain unbound by the Vim layer and reach the visited page.
+- The command is registered only while the Browser is focused; plain `h` cannot be a
+  command default because the host shortcut service requires a modifier and webview keys
+  bypass the main document.
+
 ## 1.3.2 — 2026-11-09
 
 - Reverted the 1.3.1 Browser-page `h`/`l` consumption: the injected layer no longer
