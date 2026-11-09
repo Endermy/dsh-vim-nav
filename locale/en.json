@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Vim Navigation",
-    "description": "Browse the Harness in Vim style: j/k scroll, kk at the top loads earlier history, h/l switch panel focus, i enters the composer, dd clears the draft, jk exits edit mode, Ctrl+J/K jump to the next/previous message, gg/G jump to the top/bottom, Ctrl+F searches sessions, Space/Enter select a workspace row while preserving the mode you were in, and Ctrl+W no longer closes the window."
+    "description": "Vim-style keyboard navigation for the Harness Web UI, with linear scrolling, message jumps, link hints, and mode-preserving session selection."
   }
 }

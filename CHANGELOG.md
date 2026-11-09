@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 — 2026-11-09
+
+- Vimium-style link hints: `f` labels visible conversation links, typing a label opens
+  the link, `Escape` cancels, and `Backspace` edits the typed prefix.
+- Hints stay aligned while the conversation scrolls or resizes, and the mode badge shows
+  `HINT · select link`.
+
 ## 1.0.0 — 2026-11-09
 
 Initial public release.

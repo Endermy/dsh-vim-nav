@@ -26,6 +26,9 @@ window.__ModuleLoader__.load({
     /** How long a first `k` at the top waits for the second one to load older history. */
     const KK_TIMEOUT_MS = 500;
 
+    /** Labels used for Vimium-style `f` link hints, home row first. */
+    const HINT_ALPHABET = 'asdfghjklqwertyuiopzxcvbnm';
+
     /** Key/code spellings of the Windows/Super/OS modifier across engines. */
     const META_KEY_NAMES = new Set(['Meta', 'OS', 'Super', 'Win']);
     const META_KEY_CODES = new Set(['MetaLeft', 'MetaRight', 'OSLeft', 'OSRight']);
@@ -35,7 +38,9 @@ window.__ModuleLoader__.load({
     const en = {
       'mode.normal': 'NORMAL',
       'mode.insert': 'INSERT',
+      'mode.hint': 'HINT',
       'mode.edit': 'editing',
+      'hint.select': 'select link',
       'panel.workspace': 'Workspace',
       'panel.conversation': 'Conversation',
       'ctrlW.keep': 'Keep Ctrl+W (do not close the window)',
@@ -43,7 +48,9 @@ window.__ModuleLoader__.load({
     const zh = {
       'mode.normal': 'NORMAL',
       'mode.insert': 'INSERT',
+      'mode.hint': 'HINT',
       'mode.edit': '编辑中',
+      'hint.select': '选择链接',
       'panel.workspace': '工作区',
       'panel.conversation': '对话',
       'ctrlW.keep': '保留 Ctrl+W（不关闭窗口）',
@@ -583,6 +590,21 @@ window.__ModuleLoader__.load({
       return unique;
     }
 
+    /** Vimium-style labels: one character for a few links, two for a crowd. */
+    function hintLabels(count) {
+      if (count <= 0) return [];
+      if (count <= HINT_ALPHABET.length) return HINT_ALPHABET.slice(0, count).split('');
+      const labels = [];
+      const limit = Math.min(count, HINT_ALPHABET.length * HINT_ALPHABET.length);
+      for (let index = 0; index < limit; index += 1) {
+        labels.push(
+          HINT_ALPHABET[index % HINT_ALPHABET.length] +
+          HINT_ALPHABET[Math.floor(index / HINT_ALPHABET.length) % HINT_ALPHABET.length],
+        );
+      }
+      return labels;
+    }
+
     // #region Input controller
 
     function createController(store, layout, draftHolder, driver) {
@@ -592,6 +614,8 @@ window.__ModuleLoader__.load({
       let pendingGAt = 0;
       let pendingKAt = 0;
       let pagingReleaseNeeded = false;
+      /** Active Vimium-style link hint session, or null. */
+      let hintSession = null;
       let expansionTimer = 0;
       let metaHeld = false;
       let metaReleasedAt = 0;
@@ -761,8 +785,148 @@ window.__ModuleLoader__.load({
         jRun = 0;
       }
 
+      function conversationSessionId() {
+        return document.querySelector(CONVERSATION_CONTENT_SELECTOR)?.getAttribute('data-conversation-session') ?? '';
+      }
+
+      function hintItems() {
+        if (hintSession === null) return [];
+        const scroller = conversationScroller();
+        if (scroller === null) return [];
+        const scrollerRect = scroller.getBoundingClientRect();
+        const typed = hintSession.typed;
+        const items = [];
+        for (const target of hintSession.targets) {
+          if (typed !== '' && !target.label.startsWith(typed)) continue;
+          const element = target.element;
+          if (!element.isConnected) continue;
+          const rects = element.getClientRects();
+          const rect = rects.length > 0 ? rects[0] : element.getBoundingClientRect();
+          if (rect.width < 2 || rect.height < 2) continue;
+          if (rect.bottom < scrollerRect.top + 1 || rect.top > scrollerRect.bottom - 1) continue;
+          if (rect.right < scrollerRect.left + 1 || rect.left > scrollerRect.right - 1) continue;
+          items.push({
+            label: target.label,
+            left: Math.max(scrollerRect.left + 2, Math.min(rect.left, scrollerRect.right - 24)),
+            top: Math.max(scrollerRect.top + 2, Math.min(rect.top, scrollerRect.bottom - 20)),
+          });
+        }
+        return items;
+      }
+
+      function endHints() {
+        if (hintSession === null) return;
+        hintSession = null;
+        store.set({ hintActive: false, hints: [], hintTyped: '' });
+      }
+
+      function startHints() {
+        if (hintSession !== null || hasOpenModal()) return false;
+        const scroller = conversationScroller();
+        if (scroller === null) return false;
+        const scrollerRect = scroller.getBoundingClientRect();
+        const anchors = [];
+        for (const element of scroller.querySelectorAll('a[href]')) {
+          if (!(element instanceof HTMLElement)) continue;
+          const href = element.getAttribute('href') ?? '';
+          if (href === '' || href.toLowerCase().startsWith('javascript:')) continue;
+          const rect = element.getBoundingClientRect();
+          if (rect.width < 2 || rect.height < 2) continue;
+          if (rect.bottom < scrollerRect.top + 1 || rect.top > scrollerRect.bottom - 1) continue;
+          if (rect.right < scrollerRect.left + 1 || rect.left > scrollerRect.right - 1) continue;
+          anchors.push(element);
+        }
+        if (anchors.length === 0) return false;
+        anchors.sort((left, right) => {
+          const a = left.getBoundingClientRect();
+          const b = right.getBoundingClientRect();
+          return a.top - b.top || a.left - b.left;
+        });
+        const limited = anchors.slice(0, HINT_ALPHABET.length * HINT_ALPHABET.length);
+        const labels = hintLabels(limited.length);
+        hintSession = {
+          targets: limited.map((element, index) => ({ element, label: labels[index] })),
+          typed: '',
+          session: conversationSessionId(),
+        };
+        store.set({ hintActive: true, hintTyped: '', hints: hintItems() });
+        return true;
+      }
+
+      function refreshHints() {
+        if (hintSession === null) return;
+        if (conversationScroller() === null || hintSession.session !== conversationSessionId()) {
+          endHints();
+          return;
+        }
+        store.set({ hints: hintItems(), hintTyped: hintSession.typed });
+      }
+
+      function handleHintKey(event) {
+        if (hintSession === null) return false;
+        if (event.isComposing || event.keyCode === 229) {
+          event.preventDefault();
+          event.stopPropagation();
+          return true;
+        }
+        if (event.key === 'Shift') {
+          event.preventDefault();
+          event.stopPropagation();
+          return true;
+        }
+        if (event.ctrlKey || event.altKey || event.metaKey) {
+          endHints();
+          return false;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          event.stopPropagation();
+          endHints();
+          return true;
+        }
+        if (event.key === 'Backspace') {
+          event.preventDefault();
+          event.stopPropagation();
+          hintSession.typed = hintSession.typed.slice(0, -1);
+          store.set({ hints: hintItems(), hintTyped: hintSession.typed });
+          return true;
+        }
+        if (event.key.length !== 1) {
+          endHints();
+          return false;
+        }
+        const typed = hintSession.typed + event.key.toLowerCase();
+        const matches = hintSession.targets.filter((target) => target.label.startsWith(typed));
+        if (matches.length === 0) {
+          // Keep the session and ignore a key that no remaining label starts with.
+          event.preventDefault();
+          event.stopPropagation();
+          return true;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        hintSession.typed = typed;
+        if (matches.length === 1 && matches[0].label === typed) {
+          const target = matches[0];
+          endHints();
+          try {
+            target.element.click();
+          } catch {
+            // A target removed between collection and activation is a no-op.
+          }
+          return true;
+        }
+        store.set({ hints: hintItems(), hintTyped: typed });
+        return true;
+      }
+
+      function isHinting() {
+        return hintSession !== null;
+      }
+
       function handleKeyDown(event) {
         if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+        if (hintSession !== null) return;
         if (noteKeyState(event)) return;
         if (modifiersActive(event)) return;
         if (store.get().mode === 'insert') {
@@ -835,6 +999,9 @@ window.__ModuleLoader__.load({
           case 'd':
             handled = handleDelete();
             break;
+          case 'f':
+            handled = startHints();
+            break;
           case 'g':
             handled = handleG();
             break;
@@ -887,6 +1054,7 @@ window.__ModuleLoader__.load({
       }
 
       function handleWindowBlur() {
+        endHints();
         resetModifiers();
         scrollKey = null;
         driver.stop();
@@ -895,6 +1063,7 @@ window.__ModuleLoader__.load({
       function handlePointerDown(event) {
         const target = event.target;
         if (!(target instanceof Element)) return;
+        if (hintSession !== null) endHints();
         const input = composerInput();
         const inComposer = input !== null && input.contains(target);
         if (inComposer) {
@@ -923,6 +1092,7 @@ window.__ModuleLoader__.load({
       }
 
       function dispose() {
+        endHints();
         if (expansionTimer !== 0) window.clearTimeout(expansionTimer);
         expansionTimer = 0;
         clearMetaSafety();
@@ -930,7 +1100,7 @@ window.__ModuleLoader__.load({
         driver.stop();
       }
 
-      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, dispose };
+      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, dispose };
     }
 
     // #endregion
@@ -988,6 +1158,28 @@ window.__ModuleLoader__.load({
 
     const BADGE_SEPARATOR_STYLE = { opacity: 0.5 };
 
+    const HINT_STYLE = {
+      position: 'fixed',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxSizing: 'border-box',
+      minWidth: '16px',
+      height: '18px',
+      padding: '0 4px',
+      borderRadius: '3px',
+      background: 'var(--dsw-alias-state-warning-primary, #f2c94c)',
+      color: '#101828',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      fontSize: '12px',
+      fontWeight: 700,
+      lineHeight: '18px',
+      letterSpacing: '0.02em',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.35)',
+      pointerEvents: 'none',
+      zIndex: 1000,
+    };
+
     function ringStyle(rect, base, inset) {
       return {
         ...base,
@@ -1002,6 +1194,7 @@ window.__ModuleLoader__.load({
       const store = props.store;
       const t = props.t;
       const state = React.useSyncExternalStore(store.subscribe, store.get, store.get);
+      const hinting = state.hintActive === true;
       const [frames, setFrames] = React.useState({ active: false, panel: null, cursor: null, main: null });
 
       const measure = React.useCallback(() => {
@@ -1062,7 +1255,7 @@ window.__ModuleLoader__.load({
       }, [measure]);
 
       const children = [];
-      if (frames.active && state.mode === 'normal' && frames.panel !== null) {
+      if (frames.active && state.mode === 'normal' && !hinting && frames.panel !== null) {
         children.push(React.createElement('div', {
           key: 'panel',
           'data-vim-nav': 'panel',
@@ -1070,7 +1263,7 @@ window.__ModuleLoader__.load({
           style: ringStyle(frames.panel, PANEL_RING_STYLE, 1),
         }));
       }
-      if (frames.active && state.mode === 'normal' && frames.cursor !== null) {
+      if (frames.active && state.mode === 'normal' && !hinting && frames.cursor !== null) {
         children.push(React.createElement('div', {
           key: 'cursor',
           'data-vim-nav': 'cursor',
@@ -1080,19 +1273,35 @@ window.__ModuleLoader__.load({
       }
       if (frames.active) {
         const insert = state.mode === 'insert';
-        const detail = insert
-          ? t('mode.edit')
-          : t(state.panel === 'workspace' ? 'panel.workspace' : 'panel.conversation');
+        const detail = hinting
+          ? t('hint.select')
+          : insert
+            ? t('mode.edit')
+            : t(state.panel === 'workspace' ? 'panel.workspace' : 'panel.conversation');
         children.push(React.createElement('div', {
           key: 'badge',
           'data-vim-nav': 'badge',
           'aria-hidden': true,
           style: frames.main === null ? BADGE_STYLE : { ...BADGE_STYLE, left: `${Math.round(frames.main.left) + 12}px` },
         }, [
-          React.createElement('span', { key: 'mode', style: BADGE_MODE_STYLE }, t(insert ? 'mode.insert' : 'mode.normal')),
+          React.createElement('span', { key: 'mode', style: BADGE_MODE_STYLE }, t(hinting ? 'mode.hint' : insert ? 'mode.insert' : 'mode.normal')),
           React.createElement('span', { key: 'separator', style: BADGE_SEPARATOR_STYLE }, '·'),
           React.createElement('span', { key: 'detail' }, detail),
         ]));
+      }
+      if (hinting) {
+        for (const hint of state.hints ?? []) {
+          children.push(React.createElement('div', {
+            key: `hint-${hint.label}`,
+            'data-vim-nav': 'hint',
+            'aria-hidden': true,
+            style: {
+              ...HINT_STYLE,
+              left: `${Math.round(hint.left)}px`,
+              top: `${Math.round(hint.top)}px`,
+            },
+          }, hint.label));
+        }
       }
       return React.createElement(React.Fragment, null, children);
     }
@@ -1115,7 +1324,7 @@ window.__ModuleLoader__.load({
     }
 
     function apply(ctx) {
-      const store = createStore({ mode: 'normal', panel: 'conversation', cursor: null });
+      const store = createStore({ mode: 'normal', panel: 'conversation', cursor: null, hintActive: false, hints: [], hintTyped: '' });
       const draftHolder = { actions: null };
       const bindDraftActions = (actions) => {
         draftHolder.actions = actions;
@@ -1215,6 +1424,10 @@ window.__ModuleLoader__.load({
           if (handleGlobalShortcut(event)) return;
           controller.handleKeyDown(event);
         };
+        const onHintKeyDown = (event) => {
+          controller.handleHintKey(event);
+        };
+        const onHintViewport = () => controller.refreshHints();
         const onKeyUp = (event) => controller.handleKeyUp(event);
         const onFocusIn = (event) => controller.handleFocusIn(event);
         const onPointerDown = (event) => controller.handlePointerDown(event);
@@ -1225,6 +1438,11 @@ window.__ModuleLoader__.load({
             controller.cancelScroll();
           }
         };
+        // Hint mode owns the keyboard while a label is being typed; capture runs
+        // before the page's own shortcut handlers and before the normal handler.
+        document.addEventListener('keydown', onHintKeyDown, true);
+        document.addEventListener('scroll', onHintViewport, true);
+        window.addEventListener('resize', onHintViewport);
         // Bubble phase: let the page's own shortcut handlers run first and honor
         // their preventDefault before this plugin claims a single letter.
         document.addEventListener('keydown', onKeyDown);
@@ -1235,6 +1453,9 @@ window.__ModuleLoader__.load({
         document.addEventListener('touchstart', onManualScroll, { passive: true, capture: true });
         window.addEventListener('blur', onBlur);
         return () => {
+          document.removeEventListener('keydown', onHintKeyDown, true);
+          document.removeEventListener('scroll', onHintViewport, true);
+          window.removeEventListener('resize', onHintViewport);
           document.removeEventListener('keydown', onKeyDown);
           document.removeEventListener('keyup', onKeyUp);
           document.removeEventListener('focusin', onFocusIn, true);
