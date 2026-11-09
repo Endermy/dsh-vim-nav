@@ -158,8 +158,9 @@ window.__ModuleLoader__.load({
      */
     const BROWSER_VIM_SCRIPT = String.raw`(function () {
   'use strict';
-  if (window.__dshVimBrowser) return;
+  if (window.__dshVimBrowser === 1 && document.documentElement && document.documentElement.getAttribute('data-dsh-vim-script') === '1') return;
   window.__dshVimBrowser = 1;
+  if (document.documentElement) document.documentElement.setAttribute('data-dsh-vim-script', '1');
 
   var ALPHABET = 'asdfghjklqwertyuiopzxcvbnm';
   var hints = null;
@@ -344,6 +345,11 @@ window.__ModuleLoader__.load({
     if (document.querySelector('dialog[open]') !== null) return;
     var key = event.key;
     if (key !== 'g') pendingG = 0;
+    if (key === 'h' || key === 'l') {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (key === 'j') {
       event.preventDefault();
       glideTo((window.scrollY || 0) + Math.round(window.innerHeight * 0.35));

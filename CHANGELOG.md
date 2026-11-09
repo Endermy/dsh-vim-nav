@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.1 — 2026-11-09
+
+- The Browser page Vim layer now consumes `h`/`l`: they no longer reach the visited
+  page (inputs still receive them). The main `h`/`l` workspace/conversation/Browser
+  focus is unchanged.
+- The injected layer uses a per-document guard, so an iframe navigation re-installs the
+  layer even when the window object survives; the `f`/`j`/`k` behavior is unchanged.
+
 ## 1.3.0 — 2026-11-09
 
 - Workspace archive: `c` then `x` with the cursor on a session row clicks that row's

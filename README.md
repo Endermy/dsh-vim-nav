@@ -88,11 +88,13 @@ not to the main conversation. The injected layer provides:
 | `j` / `k` | Scroll down / up (linear, 35% of the viewport) |
 | `gg` / `G` | Top / bottom |
 | `f` | Hint the visible page links; type a label to click |
+| `h` / `l` | Disabled: consumed by the layer, not forwarded to the page |
 | `Escape` / `Backspace` | Cancel hints / edit the typed label |
 
 Editable fields (`input`, `textarea`, `select`, `contenteditable`) are not intercepted.
-`h`/`l` are not forwarded out of the page; click the conversation to return to the main
-Vim surface.
+`h`/`l` are intentionally consumed inside the Browser page (they do not reach the visited
+page); the main `h`/`l` panel focus is unchanged. Click the conversation to return to the
+main Vim surface.
 
 ## Install
 
@@ -161,7 +163,7 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
 - 工作区列表里 `c` `x` 归档光标所在会话（走该行的归档按钮；运行中的会话会弹宿主的停止并归档确认；归档后光标移到相邻行）
 - `h`/`l` 在 工作区 ← 对话 → 内置浏览器 之间移动焦点；对话里 `l` 聚焦浏览器，浏览器里 `h` 回对话（主界面有焦点时）
-- 桌面端内置浏览器页注入 Vim 层：`j`/`k` 线性滚动、`gg`/`G`、`f` 链接提示；输入框不拦截
+- 桌面端内置浏览器页注入 Vim 层：`j`/`k` 线性滚动、`gg`/`G`、`f` 链接提示；输入框不拦截；页内 `h`/`l` 被禁用（不再传给页面），主界面 `h`/`l` 三栏焦点不变
 - `Ctrl+F` 搜索会话（会把宿主原本的 `Ctrl+K` 搜索改绑到 `Ctrl+F`，可在设置里改回）
 - `Space`/`Enter` 选中工作区行；进入会话时保持进入前的模式（Normal 不会因为自动聚焦变成 Insert）
 - `Ctrl+W` 在普通界面不关闭窗口；只有焦点在内置 Browser 页（webview / iframe / 地址栏）时才解禁，用来关闭该浏览页；不占用 Win/Super 系统快捷键
