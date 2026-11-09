@@ -43,6 +43,7 @@ window.__ModuleLoader__.load({
       'hint.select': 'select link',
       'panel.workspace': 'Workspace',
       'panel.conversation': 'Conversation',
+      'panel.browser': 'Browser',
       'ctrlW.keep': 'Keep Ctrl+W (do not close the window)',
     };
     const zh = {
@@ -53,6 +54,7 @@ window.__ModuleLoader__.load({
       'hint.select': '选择链接',
       'panel.workspace': '工作区',
       'panel.conversation': '对话',
+      'panel.browser': '浏览器',
       'ctrlW.keep': '保留 Ctrl+W（不关闭窗口）',
     };
 
@@ -147,6 +149,241 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Page-level Vim layer injected into the built-in Browser's guest page.
+     * It is plain page JavaScript (no Node, no DSH APIs): j/k scroll, gg/G, and
+     * Vimium-style f hints inside the visited page. The same code is used for
+     * Electron webviews via executeJavaScript and for same-origin iframes.
+     */
+    const BROWSER_VIM_SCRIPT = String.raw`(function () {
+  'use strict';
+  if (window.__dshVimBrowser) return;
+  window.__dshVimBrowser = 1;
+
+  var ALPHABET = 'asdfghjklqwertyuiopzxcvbnm';
+  var hints = null;
+  var pendingG = 0;
+  var frame = 0;
+
+  function editable(element) {
+    if (!(element instanceof Element)) return false;
+    return element.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]') !== null;
+  }
+
+  function scroller() {
+    return document.scrollingElement || document.documentElement;
+  }
+
+  function maxScroll() {
+    return Math.max(0, scroller().scrollHeight - window.innerHeight);
+  }
+
+  function glideTo(target) {
+    var from = window.scrollY || scroller().scrollTop || 0;
+    var to = Math.max(0, Math.min(maxScroll(), target));
+    if (frame !== 0) cancelAnimationFrame(frame);
+    if (Math.abs(to - from) < 1) {
+      window.scrollTo({ top: to, left: 0, behavior: 'instant' });
+      return;
+    }
+    var started = performance.now();
+    var duration = Math.max(80, Math.min(240, Math.abs(to - from)));
+    function tick(now) {
+      var progress = Math.min(1, (now - started) / duration);
+      window.scrollTo({ top: from + (to - from) * progress, left: 0, behavior: 'instant' });
+      if (progress < 1) {
+        frame = requestAnimationFrame(tick);
+      } else {
+        frame = 0;
+      }
+    }
+    frame = requestAnimationFrame(tick);
+  }
+
+  function hintLabels(count) {
+    if (count <= 0) return [];
+    if (count <= ALPHABET.length) return ALPHABET.slice(0, count).split('');
+    var labels = [];
+    var limit = Math.min(count, ALPHABET.length * ALPHABET.length);
+    for (var index = 0; index < limit; index += 1) {
+      labels.push(ALPHABET[index % ALPHABET.length] + ALPHABET[Math.floor(index / ALPHABET.length) % ALPHABET.length]);
+    }
+    return labels;
+  }
+
+  function hintTargets() {
+    var viewWidth = window.innerWidth;
+    var viewHeight = window.innerHeight;
+    var anchors = [];
+    var all = document.querySelectorAll('a[href]');
+    for (var index = 0; index < all.length; index += 1) {
+      var anchor = all[index];
+      var href = anchor.getAttribute('href') || '';
+      if (href === '' || /^javascript:/i.test(href)) continue;
+      var rect = anchor.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) continue;
+      if (rect.bottom < 0 || rect.top > viewHeight || rect.right < 0 || rect.left > viewWidth) continue;
+      anchors.push(anchor);
+    }
+    anchors.sort(function (left, right) {
+      var a = left.getBoundingClientRect();
+      var b = right.getBoundingClientRect();
+      return a.top - b.top || a.left - b.left;
+    });
+    return anchors;
+  }
+
+  function styleLabel(label, rect) {
+    var left = Math.max(0, Math.min(rect.left, window.innerWidth - 24));
+    var top = Math.max(0, Math.min(rect.top, window.innerHeight - 20));
+    label.style.cssText = 'position:fixed;left:' + left + 'px;top:' + top + 'px;padding:0 4px;height:18px;line-height:18px;font:700 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f2c94c;color:#101828;border-radius:3px;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none;z-index:2147483647;';
+  }
+
+  function paintHints() {
+    if (hints === null) return;
+    var box = hints.box;
+    while (box.firstChild !== null) box.removeChild(box.firstChild);
+    for (var index = 0; index < hints.targets.length; index += 1) {
+      var target = hints.targets[index];
+      if (target.element.isConnected === false) continue;
+      if (hints.typed !== '' && target.label.indexOf(hints.typed) !== 0) continue;
+      var rect = target.element.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) continue;
+      if (rect.bottom < 0 || rect.top > window.innerHeight || rect.right < 0 || rect.left > window.innerWidth) continue;
+      var label = document.createElement('span');
+      label.textContent = target.label;
+      styleLabel(label, rect);
+      box.appendChild(label);
+    }
+  }
+
+  function startHints() {
+    var anchors = hintTargets();
+    if (anchors.length === 0) return false;
+    var labels = hintLabels(anchors.length);
+    var box = document.createElement('div');
+    box.setAttribute('data-dsh-vim-hints', '');
+    box.style.cssText = 'position:fixed;inset:0;z-index:2147483647;pointer-events:none;';
+    (document.body || document.documentElement).appendChild(box);
+    hints = {
+      box: box,
+      targets: anchors.map(function (anchor, index) {
+        return { element: anchor, label: labels[index] };
+      }),
+      typed: ''
+    };
+    paintHints();
+    return true;
+  }
+
+  function endHints() {
+    if (hints === null) return;
+    hints.box.remove();
+    hints = null;
+  }
+
+  function handleHintKey(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      endHints();
+      return true;
+    }
+    if (event.key === 'Backspace') {
+      event.preventDefault();
+      event.stopPropagation();
+      hints.typed = hints.typed.slice(0, -1);
+      paintHints();
+      return true;
+    }
+    if (event.ctrlKey || event.altKey || event.metaKey) {
+      endHints();
+      return false;
+    }
+    if (event.key.length !== 1) {
+      endHints();
+      return false;
+    }
+    var typed = hints.typed + event.key.toLowerCase();
+    var matches = [];
+    for (var index = 0; index < hints.targets.length; index += 1) {
+      if (hints.targets[index].label.indexOf(typed) === 0) matches.push(hints.targets[index]);
+    }
+    if (matches.length === 0) {
+      event.preventDefault();
+      event.stopPropagation();
+      endHints();
+      return true;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    hints.typed = typed;
+    if (matches.length === 1 && matches[0].label === typed) {
+      var target = matches[0].element;
+      endHints();
+      try {
+        target.click();
+      } catch (error) {
+        // A target removed between collection and activation is a no-op.
+      }
+      return true;
+    }
+    paintHints();
+    return true;
+  }
+
+  function onKeyDown(event) {
+    if (event.defaultPrevented || event.isComposing) return;
+    if (hints !== null) {
+      handleHintKey(event);
+      return;
+    }
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (editable(event.target)) return;
+    if (document.querySelector('dialog[open]') !== null) return;
+    var key = event.key;
+    if (key !== 'g') pendingG = 0;
+    if (key === 'j') {
+      event.preventDefault();
+      glideTo((window.scrollY || 0) + Math.round(window.innerHeight * 0.35));
+      return;
+    }
+    if (key === 'k') {
+      event.preventDefault();
+      glideTo((window.scrollY || 0) - Math.round(window.innerHeight * 0.35));
+      return;
+    }
+    if (key === 'G') {
+      event.preventDefault();
+      glideTo(maxScroll());
+      return;
+    }
+    if (key === 'g') {
+      event.preventDefault();
+      var now = performance.now();
+      if (pendingG !== 0 && now - pendingG <= 600) {
+        pendingG = 0;
+        glideTo(0);
+      } else {
+        pendingG = now;
+      }
+      return;
+    }
+    if (key === 'f') {
+      if (startHints()) event.preventDefault();
+      return;
+    }
+    if (key === 'Escape') {
+      endHints();
+    }
+  }
+
+  document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('pointerdown', function () { endHints(); }, true);
+  window.addEventListener('scroll', function () { if (hints !== null) paintHints(); }, { passive: true });
+})();
+`;
+
+    /**
      * True when focus belongs to the built-in Browser page: its desktop
      * `<webview>` or web `<iframe>` content, or the browser tab's toolbar /
      * address bar. Ctrl+W is released only there; the fixed reservation keeps
@@ -164,6 +401,18 @@ window.__ModuleLoader__.load({
       const tab = active.closest('[data-dockkit-tab], [data-sidebar-right-tab]');
       if (tab !== null) return tab.querySelector('webview, iframe') !== null;
       return false;
+    }
+
+    /** Visible Browser page carrier: a desktop webview or a sidebar iframe. */
+    function browserPageElement() {
+      for (const element of document.querySelectorAll('webview, iframe')) {
+        if (!(element instanceof HTMLElement) || !isVisible(element)) continue;
+        if (element.tagName === 'WEBVIEW') return element;
+        if (element.closest(
+          '[data-sidebar-right-session], [data-dockkit-pane], [data-dockkit-float], [data-sidebar-right-tab]',
+        ) !== null) return element;
+      }
+      return null;
     }
 
     function hasOpenPopup() {
@@ -712,6 +961,37 @@ window.__ModuleLoader__.load({
         return true;
       }
 
+      function focusBrowser() {
+        const element = browserPageElement();
+        if (element === null) return false;
+        try {
+          element.focus({ preventScroll: true });
+        } catch {
+          try {
+            element.focus();
+          } catch {
+            return false;
+          }
+        }
+        if (document.activeElement !== element && !browserContentFocused()) return false;
+        store.set({ mode: 'normal', panel: 'browser' });
+        return true;
+      }
+
+      function focusLeft() {
+        const panel = store.get().panel;
+        if (panel === 'browser') return focusConversation();
+        if (panel === 'conversation') return focusWorkspace();
+        return false;
+      }
+
+      function focusRight() {
+        const panel = store.get().panel;
+        if (panel === 'workspace') return focusConversation();
+        if (panel === 'conversation') return focusBrowser();
+        return false;
+      }
+
       function moveWithinPanel(direction) {
         if (store.get().panel === 'workspace' && panelElement('sidebar') !== null) {
           return moveWorkspace(store, direction);
@@ -1008,10 +1288,10 @@ window.__ModuleLoader__.load({
             break;
           }
           case 'h':
-            handled = focusWorkspace();
+            handled = focusLeft();
             break;
           case 'l':
-            handled = focusConversation();
+            handled = focusRight();
             break;
           case 'i':
             jRun = 0;
@@ -1042,6 +1322,11 @@ window.__ModuleLoader__.load({
       function handleFocusIn(event) {
         const target = event.target;
         if (!(target instanceof Element)) return;
+        if (browserContentFocused()) {
+          if (store.get().mode === 'insert') store.set({ mode: 'normal' });
+          if (store.get().panel !== 'browser') store.set({ panel: 'browser' });
+          return;
+        }
         const input = composerInput();
         if (input !== null && input.contains(target)) {
           // Programmatic autofocus (session open, new session, host focus) must
@@ -1231,6 +1516,9 @@ window.__ModuleLoader__.load({
             if (sidebar !== null) panel = rectOf(sidebar);
             const row = findWorkspaceRow(current.cursor);
             if (row !== null) cursor = rectOf(row);
+          } else if (current.panel === 'browser') {
+            const browser = browserPageElement();
+            panel = browser === null ? null : rectOf(browser);
           } else {
             panel = main;
           }
@@ -1298,7 +1586,7 @@ window.__ModuleLoader__.load({
           ? t('hint.select')
           : insert
             ? t('mode.edit')
-            : t(state.panel === 'workspace' ? 'panel.workspace' : 'panel.conversation');
+            : t(state.panel === 'workspace' ? 'panel.workspace' : state.panel === 'browser' ? 'panel.browser' : 'panel.conversation');
         children.push(React.createElement('div', {
           key: 'badge',
           'data-vim-nav': 'badge',
@@ -1401,6 +1689,87 @@ window.__ModuleLoader__.load({
           }
         };
       }, 'vim-nav: reserve ctrl+w outside browser content');
+
+      ctx.effect(() => {
+        let active = true;
+        let scheduled = false;
+        const views = new WeakSet();
+        const frames = new WeakSet();
+
+        const injectFrame = (frame) => {
+          if (!active) return;
+          let doc = null;
+          try {
+            doc = frame.contentDocument;
+          } catch {
+            return;
+          }
+          if (doc === null || doc.documentElement === null) return;
+          if (doc.documentElement.getAttribute('data-dsh-vim-browser') === '1') return;
+          doc.documentElement.setAttribute('data-dsh-vim-browser', '1');
+          const script = doc.createElement('script');
+          script.textContent = BROWSER_VIM_SCRIPT;
+          (doc.head || doc.documentElement).appendChild(script);
+          script.remove();
+        };
+
+        const attachFrame = (frame) => {
+          if (frames.has(frame)) return;
+          frames.add(frame);
+          frame.addEventListener('load', () => injectFrame(frame));
+          injectFrame(frame);
+        };
+
+        const injectView = (view) => {
+          if (!active || typeof view.executeJavaScript !== 'function') return;
+          try {
+            const result = view.executeJavaScript(BROWSER_VIM_SCRIPT, false);
+            if (result !== null && typeof result === 'object' && typeof result.catch === 'function') {
+              result.catch(() => {});
+            }
+          } catch {
+            // The guest is not ready yet; a lifecycle event retries.
+          }
+        };
+
+        const attachView = (view) => {
+          if (views.has(view)) return;
+          views.add(view);
+          const run = () => injectView(view);
+          view.addEventListener('dom-ready', run);
+          view.addEventListener('did-navigate', run);
+          view.addEventListener('did-stop-loading', run);
+          run();
+        };
+
+        const scan = () => {
+          if (!active) return;
+          for (const view of document.querySelectorAll('webview')) attachView(view);
+          for (const frame of document.querySelectorAll('iframe')) {
+            if (frame.closest(
+              '[data-sidebar-right-session], [data-dockkit-pane], [data-dockkit-float], [data-sidebar-right-tab]',
+            ) === null) continue;
+            attachFrame(frame);
+          }
+        };
+
+        const schedule = () => {
+          if (scheduled || !active) return;
+          scheduled = true;
+          requestAnimationFrame(() => {
+            scheduled = false;
+            scan();
+          });
+        };
+
+        const observer = new MutationObserver(schedule);
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+        scan();
+        return () => {
+          active = false;
+          observer.disconnect();
+        };
+      }, 'vim-nav: browser vim layer');
 
       const handleGlobalShortcut = (event) => {
         if (event.isComposing || event.keyCode === 229) return false;

@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Vim Navigation",
-    "description": "Vim-style keyboard navigation for the Harness Web UI: linear scrolling, kk history loading, message jumps, link hints, mode-preserving session selection, and Ctrl+W scoped to the built-in Browser page."
+    "description": "Vim-style keyboard navigation for the Harness Web UI: linear scrolling, kk history loading, message jumps, link hints, three-panel h/l focus including the built-in Browser, an injected Vim layer inside Browser pages, and Ctrl+W scoped to the Browser page."
   }
 }

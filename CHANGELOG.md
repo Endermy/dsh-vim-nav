@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — 2026-11-09
+
+- `h`/`l` now move left/right across the workspace, conversation, and built-in Browser
+  instead of always jumping to one fixed panel. The Browser has its own `NORMAL · Browser`
+  badge; `l` from the conversation focuses the Browser.
+- The built-in Browser gets a page-level Vim layer injected into its desktop `<webview>`
+  (and same-origin iframes): `j`/`k` linear scrolling, `gg`/`G`, Vimium-style `f` link
+  hints, and `Escape`/`Backspace` for hints. Editable fields are not intercepted.
+- The Browser Vim layer is plain page JavaScript: no Node, no DSH APIs, no access to the
+  host page.
+
 ## 1.1.1 — 2026-11-09
 
 - Link hints: a key that no remaining label starts with now exits hint mode instead of

@@ -14,7 +14,10 @@ drops you into Insert unexpectedly.
   post-release glide. Releasing the key stops on the next frame.
 - **`kk` at the top loads earlier history** — uses the host's own "load earlier" control
   and releases the host's paging position hold on the next scroll key.
-- **Panel focus** — `h` focuses the workspace, `l` focuses the conversation.
+- **Panel focus** — `h`/`l` move left/right across the workspace, the conversation, and
+  the built-in Browser. From the conversation, `l` focuses the Browser and `h` the
+  workspace; from the Browser, `h` returns to the conversation when the main page has
+  focus. The badge shows `NORMAL · Browser` while the Browser panel is active.
 - **Composer** — `i` enters Insert; `jk` (quick `j` then `k`) or `Escape` leaves it;
   `dd` clears the draft.
 - **Message jumps** — `Ctrl+J` / `Ctrl+K` jump to the next / previous top-level
@@ -23,6 +26,11 @@ drops you into Insert unexpectedly.
 - **Vimium-style link hints** — `f` labels the visible conversation links; type a label to
   open the link. `Escape` cancels, `Backspace` edits the label prefix, and a key that no
   remaining label starts with exits hint mode.
+- **Built-in Browser Vim layer** — on desktop, the right-Sidebar Browser's Electron
+  `<webview>` gets an injected page-level Vim layer: `j`/`k` linear scroll, `gg`/`G`,
+  `f` link hints (same hint behavior), and `Escape`/`Backspace` for hints. Editable fields
+  are left alone. Web Browser iframes are cross-origin, so the layer applies only where the
+  page is scriptable (desktop webview and same-origin iframes).
 - **Session search** — `Ctrl+F` opens the host's session search. The plugin moves the
   host's built-in binding from `Ctrl+K` to `Ctrl+F` once (visible and reversible in
   Settings → Shortcuts); if that binding cannot be applied, it falls back to clicking
@@ -46,7 +54,7 @@ drops you into Insert unexpectedly.
 | --- | --- | --- |
 | `j` / `k` | Normal | Hold to scroll down / up (constant speed, linear) |
 | `kk` | Normal | At the conversation top: load one page of earlier history |
-| `h` / `l` | Normal | Focus workspace / conversation |
+| `h` / `l` | Normal | Focus left / right: workspace ↔ conversation ↔ Browser |
 | `i` | Normal | Enter the composer (Insert) |
 | `j` `k` (quickly) | Insert | Exit Insert |
 | `Escape` | Insert | Exit Insert |
@@ -64,6 +72,22 @@ drops you into Insert unexpectedly.
 
 `Ctrl+J`/`Ctrl+K` target top-level `user` and `assistant-step` rows. Tool calls, process
 rows, and turn tails are skipped. At the first/last message the jump stops.
+
+### Built-in Browser page
+
+Keys inside the Browser page go to the page (the desktop webview / same-origin iframe),
+not to the main conversation. The injected layer provides:
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | Scroll down / up (linear, 35% of the viewport) |
+| `gg` / `G` | Top / bottom |
+| `f` | Hint the visible page links; type a label to click |
+| `Escape` / `Backspace` | Cancel hints / edit the typed label |
+
+Editable fields (`input`, `textarea`, `select`, `contenteditable`) are not intercepted.
+`h`/`l` are not forwarded out of the page; click the conversation to return to the main
+Vim surface.
 
 ## Install
 
@@ -130,9 +154,12 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `h`/`l` 切换工作区/对话焦点，`i` 进入输入框，`jk` 退出编辑，`dd` 清空草稿
 - `Ctrl+J`/`Ctrl+K` 跳当前会话的下一条/上一条消息，`gg`/`G` 到会话顶部/底部
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
+- `h`/`l` 在 工作区 ← 对话 → 内置浏览器 之间移动焦点；对话里 `l` 聚焦浏览器，浏览器里 `h` 回对话（主界面有焦点时）
+- 桌面端内置浏览器页注入 Vim 层：`j`/`k` 线性滚动、`gg`/`G`、`f` 链接提示；输入框不拦截
 - `Ctrl+F` 搜索会话（会把宿主原本的 `Ctrl+K` 搜索改绑到 `Ctrl+F`，可在设置里改回）
 - `Space`/`Enter` 选中工作区行；进入会话时保持进入前的模式（Normal 不会因为自动聚焦变成 Insert）
 - `Ctrl+W` 在普通界面不关闭窗口；只有焦点在内置 Browser 页（webview / iframe / 地址栏）时才解禁，用来关闭该浏览页；不占用 Win/Super 系统快捷键
+- 内置浏览器页内的按键由页面脚本处理，`h`/`l` 不会传回主界面；点一下对话即可返回
 
 安装：克隆仓库后，用 DSH 的插件管理器把该目录作为本地 bundle 安装，刷新页面即可。
 
