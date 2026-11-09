@@ -26,6 +26,10 @@ drops you into Insert unexpectedly.
 - **Vimium-style link hints** — `f` labels the visible conversation links; type a label to
   open the link. `Escape` cancels, `Backspace` edits the label prefix, and a key that no
   remaining label starts with exits hint mode.
+- **Archive from the workspace list** — with the workspace panel focused and the cursor
+  on a session, `c` then `x` invokes that row's archive action (the same button as the
+  row UI). Running sessions go through the host's stop-and-archive confirmation. When
+  the row disappears, the cursor moves to a neighboring row.
 - **Built-in Browser Vim layer** — on desktop, the right-Sidebar Browser's Electron
   `<webview>` gets an injected page-level Vim layer: `j`/`k` linear scroll, `gg`/`G`,
   `f` link hints (same hint behavior), and `Escape`/`Backspace` for hints. Editable fields
@@ -59,6 +63,7 @@ drops you into Insert unexpectedly.
 | `j` `k` (quickly) | Insert | Exit Insert |
 | `Escape` | Insert | Exit Insert |
 | `dd` | Normal | Clear the composer draft |
+| `c` `x` | Normal (workspace) | Archive the session under the cursor |
 | `Ctrl+J` | Any | Next top-level message in this conversation |
 | `Ctrl+K` | Any | Previous top-level message in this conversation |
 | `gg` | Normal | Conversation top |
@@ -154,6 +159,7 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `h`/`l` 切换工作区/对话焦点，`i` 进入输入框，`jk` 退出编辑，`dd` 清空草稿
 - `Ctrl+J`/`Ctrl+K` 跳当前会话的下一条/上一条消息，`gg`/`G` 到会话顶部/底部
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
+- 工作区列表里 `c` `x` 归档光标所在会话（走该行的归档按钮；运行中的会话会弹宿主的停止并归档确认；归档后光标移到相邻行）
 - `h`/`l` 在 工作区 ← 对话 → 内置浏览器 之间移动焦点；对话里 `l` 聚焦浏览器，浏览器里 `h` 回对话（主界面有焦点时）
 - 桌面端内置浏览器页注入 Vim 层：`j`/`k` 线性滚动、`gg`/`G`、`f` 链接提示；输入框不拦截
 - `Ctrl+F` 搜索会话（会把宿主原本的 `Ctrl+K` 搜索改绑到 `Ctrl+F`，可在设置里改回）

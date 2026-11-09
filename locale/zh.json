@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Vim 导航",
-    "description": "以 Vim 风格浏览 Harness：j/k 线性滚动，kk 加载更早历史，f 选择链接，Ctrl+J/K 跳转消息，gg/G 到顶部/底部，h/l 在工作区、对话与内置浏览器间移动焦点；浏览器页内注入 j/k/gg/G/f 的 Vim 层；Ctrl+W 仅在内置浏览器页关闭该页。"
+    "description": "以 Vim 风格浏览 Harness：j/k 线性滚动，kk 加载更早历史，f 选择链接，Ctrl+J/K 跳转消息，gg/G 到顶部/底部，h/l 在三栏间移动焦点，浏览器页内注入 Vim 层，工作区 cx 归档会话；Ctrl+W 仅在内置浏览器页关闭该页。"
   }
 }

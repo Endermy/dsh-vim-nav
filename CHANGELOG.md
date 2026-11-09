@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0 — 2026-11-09
+
+- Workspace archive: `c` then `x` with the cursor on a session row clicks that row's
+  archive action. Idle sessions archive immediately; running sessions use the host's
+  stop-and-archive confirmation. The cursor moves to a neighboring row when the archived
+  row disappears.
+- Multi-key prefixes (`dd`, `gg`, `kk`, `cx`) reset on any unrelated key, including
+  modifier shortcuts consumed by the host (such as Ctrl+J/K), and on pointer input.
+- Rest of the 1.2.0 Browser/Vim behavior is unchanged.
+
 ## 1.2.0 — 2026-11-09
 
 - `h`/`l` now move left/right across the workspace, conversation, and built-in Browser

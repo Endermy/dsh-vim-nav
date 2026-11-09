@@ -25,6 +25,8 @@ window.__ModuleLoader__.load({
     const GG_TIMEOUT_MS = 600;
     /** How long a first `k` at the top waits for the second one to load older history. */
     const KK_TIMEOUT_MS = 500;
+    /** How long a first `c` waits for `x` to archive the session under the workspace cursor. */
+    const CX_TIMEOUT_MS = 700;
 
     /** Labels used for Vimium-style `f` link hints, home row first. */
     const HINT_ALPHABET = 'asdfghjklqwertyuiopzxcvbnm';
@@ -882,6 +884,7 @@ window.__ModuleLoader__.load({
       let jRun = 0;
       let pendingGAt = 0;
       let pendingKAt = 0;
+      let pendingArchiveAt = 0;
       let pagingReleaseNeeded = false;
       /** Active Vimium-style link hint session, or null. */
       let hintSession = null;
@@ -894,6 +897,22 @@ window.__ModuleLoader__.load({
       function clearMetaSafety() {
         if (metaSafetyTimer !== 0) window.clearTimeout(metaSafetyTimer);
         metaSafetyTimer = 0;
+      }
+
+      /** Reset multi-key prefixes when any unrelated key arrives, even one the
+       * global shortcut handler consumes before the controller sees it. */
+      function noteKey(event) {
+        if (event.ctrlKey || event.altKey || event.metaKey) {
+          pendingDeleteAt = 0;
+          pendingGAt = 0;
+          pendingKAt = 0;
+          pendingArchiveAt = 0;
+          return;
+        }
+        if (event.key !== 'd') pendingDeleteAt = 0;
+        if (event.key !== 'g') pendingGAt = 0;
+        if (event.key !== 'k') pendingKAt = 0;
+        if (event.key !== 'c' && event.key !== 'x') pendingArchiveAt = 0;
       }
 
       function noteKeyState(event) {
@@ -925,7 +944,41 @@ window.__ModuleLoader__.load({
         metaHeld = false;
         metaReleasedAt = 0;
         pendingDeleteAt = 0;
+        pendingArchiveAt = 0;
+        pendingGAt = 0;
+        pendingKAt = 0;
         clearMetaSafety();
+      }
+
+      function archiveWorkspaceCursor() {
+        if (store.get().panel !== 'workspace') return false;
+        const row = findWorkspaceRow(store.get().cursor);
+        if (row === null) return false;
+        const key = row.dataset.rowKey ?? '';
+        if (!key.startsWith('session:')) return false;
+        let action = null;
+        for (const button of row.querySelectorAll('button[aria-label]')) {
+          const label = button.getAttribute('aria-label') ?? '';
+          if (/取消归档|unarchive/i.test(label)) return false;
+          if (/归档|archive/i.test(label)) {
+            action = button;
+            break;
+          }
+        }
+        if (action === null || action.disabled) return false;
+        const rows = workspaceRows();
+        const index = rows.findIndex((item) => item.dataset.rowKey === key);
+        const neighbor = rows[index + 1]?.dataset.rowKey ?? rows[index - 1]?.dataset.rowKey ?? null;
+        action.click();
+        for (const delay of [400, 1200, 3000]) {
+          window.setTimeout(() => {
+            if (store.get().cursor !== key) return;
+            if (findWorkspaceRow(key) !== null) return;
+            if (neighbor !== null && findWorkspaceRow(neighbor) !== null) store.set({ cursor: neighbor });
+            else ensureWorkspaceCursor(store);
+          }, delay);
+        }
+        return true;
       }
 
       function handleDelete() {
@@ -1245,6 +1298,7 @@ window.__ModuleLoader__.load({
         if (event.key !== 'd') pendingDeleteAt = 0;
         if (event.key !== 'g') pendingGAt = 0;
         if (event.key !== 'k') pendingKAt = 0;
+        if (event.key !== 'c' && event.key !== 'x') pendingArchiveAt = 0;
         if (event.key !== 'j' && event.key !== 'k') {
           scrollKey = null;
           driver.stop();
@@ -1303,6 +1357,23 @@ window.__ModuleLoader__.load({
           case 'f':
             handled = startHints();
             break;
+          case 'c': {
+            if (store.get().panel === 'workspace') {
+              const row = findWorkspaceRow(store.get().cursor);
+              if (row !== null && (row.dataset.rowKey ?? '').startsWith('session:')) {
+                pendingArchiveAt = performance.now();
+                handled = true;
+              }
+            }
+            break;
+          }
+          case 'x': {
+            if (pendingArchiveAt !== 0 && performance.now() - pendingArchiveAt <= CX_TIMEOUT_MS) {
+              pendingArchiveAt = 0;
+              handled = archiveWorkspaceCursor();
+            }
+            break;
+          }
           case 'g':
             handled = handleG();
             break;
@@ -1370,6 +1441,10 @@ window.__ModuleLoader__.load({
         const target = event.target;
         if (!(target instanceof Element)) return;
         if (hintSession !== null) endHints();
+        pendingArchiveAt = 0;
+        pendingDeleteAt = 0;
+        pendingGAt = 0;
+        pendingKAt = 0;
         const input = composerInput();
         const inComposer = input !== null && input.contains(target);
         if (inComposer) {
@@ -1403,10 +1478,11 @@ window.__ModuleLoader__.load({
         expansionTimer = 0;
         clearMetaSafety();
         scrollKey = null;
+        pendingArchiveAt = 0;
         driver.stop();
       }
 
-      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, dispose };
+      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, dispose };
     }
 
     // #endregion
@@ -1844,6 +1920,7 @@ window.__ModuleLoader__.load({
 
       ctx.effect(() => {
         const onKeyDown = (event) => {
+          controller.noteKey(event);
           if (handleGlobalShortcut(event)) return;
           controller.handleKeyDown(event);
         };
