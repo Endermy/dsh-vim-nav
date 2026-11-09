@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.2 — 2026-11-09
+
+- Reverted the 1.3.1 Browser-page `h`/`l` consumption: the injected layer no longer
+  intercepts `h`/`l`, so they reach the visited page normally.
+- The per-document injection guard remains, so the Browser layer re-installs after an
+  iframe navigation even when the window object survives.
+
 ## 1.3.1 — 2026-11-09
 
 - The Browser page Vim layer now consumes `h`/`l`: they no longer reach the visited

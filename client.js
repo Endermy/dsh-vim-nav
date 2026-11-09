@@ -345,11 +345,6 @@ window.__ModuleLoader__.load({
     if (document.querySelector('dialog[open]') !== null) return;
     var key = event.key;
     if (key !== 'g') pendingG = 0;
-    if (key === 'h' || key === 'l') {
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
     if (key === 'j') {
       event.preventDefault();
       glideTo((window.scrollY || 0) + Math.round(window.innerHeight * 0.35));
