@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-vim-nav",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Vim-style keyboard navigation for the Harness Web UI",
   "license": "MIT",
   "author": "Endermy",

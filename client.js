@@ -146,6 +146,26 @@ window.__ModuleLoader__.load({
       return false;
     }
 
+    /**
+     * True when focus belongs to the built-in Browser page: its desktop
+     * `<webview>` or web `<iframe>` content, or the browser tab's toolbar /
+     * address bar. Ctrl+W is released only there; the fixed reservation keeps
+     * it from closing the application window everywhere else.
+     */
+    function browserContentFocused() {
+      const active = document.activeElement;
+      if (!(active instanceof Element)) return false;
+      if (active.tagName === 'WEBVIEW') return true;
+      if (active.tagName === 'IFRAME') {
+        return active.closest(
+          '[data-sidebar-right-session], [data-dockkit-pane], [data-dockkit-float], [data-sidebar-right-tab]',
+        ) !== null;
+      }
+      const tab = active.closest('[data-dockkit-tab], [data-sidebar-right-tab]');
+      if (tab !== null) return tab.querySelector('webview, iframe') !== null;
+      return false;
+    }
+
     function hasOpenPopup() {
       for (const element of document.querySelectorAll('[role="listbox"]')) {
         if (isVisible(element)) return true;
@@ -898,9 +918,10 @@ window.__ModuleLoader__.load({
         const typed = hintSession.typed + event.key.toLowerCase();
         const matches = hintSession.targets.filter((target) => target.label.startsWith(typed));
         if (matches.length === 0) {
-          // Keep the session and ignore a key that no remaining label starts with.
+          // A key that no remaining label starts with ends hint mode.
           event.preventDefault();
           event.stopPropagation();
+          endHints();
           return true;
         }
         event.preventDefault();
@@ -1340,13 +1361,46 @@ window.__ModuleLoader__.load({
       const mac = ctx.shortcuts.platform === 'macos';
       const windows = ctx.shortcuts.platform === 'windows';
       const primary = mac ? '⌘' : 'Ctrl';
-      ctx.effect(() => ctx.shortcuts.registerFixed({
-        id: 'vim-nav.keep-ctrl-w',
-        label: () => t('ctrlW.keep'),
-        keys: windows ? [primary, '+', 'W'] : [primary, 'W'],
-        group: 'application',
-        bindings: [{ code: 'KeyW', modifiers: ['primary'] }],
-      }), 'vim-nav: reserve ctrl+w');
+      ctx.effect(() => {
+        let release = null;
+        const options = {
+          id: 'vim-nav.keep-ctrl-w',
+          label: () => t('ctrlW.keep'),
+          keys: windows ? [primary, '+', 'W'] : [primary, 'W'],
+          group: 'application',
+          bindings: [{ code: 'KeyW', modifiers: ['primary'] }],
+        };
+        const sync = () => {
+          if (browserContentFocused()) {
+            if (release !== null) {
+              release();
+              release = null;
+            }
+          } else if (release === null) {
+            release = ctx.shortcuts.registerFixed(options);
+          }
+        };
+        sync();
+        const schedule = () => {
+          queueMicrotask(sync);
+        };
+        document.addEventListener('focusin', schedule, true);
+        document.addEventListener('focusout', schedule, true);
+        window.addEventListener('blur', schedule);
+        // Focus can enter a webview/iframe without a bubbling focus event; poll
+        // cheaply so Ctrl+W is released before the reader tries to close the page.
+        const timer = window.setInterval(sync, 250);
+        return () => {
+          window.clearInterval(timer);
+          document.removeEventListener('focusin', schedule, true);
+          document.removeEventListener('focusout', schedule, true);
+          window.removeEventListener('blur', schedule);
+          if (release !== null) {
+            release();
+            release = null;
+          }
+        };
+      }, 'vim-nav: reserve ctrl+w outside browser content');
 
       const handleGlobalShortcut = (event) => {
         if (event.isComposing || event.keyCode === 229) return false;

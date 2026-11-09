@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 — 2026-11-09
+
+- Link hints: a key that no remaining label starts with now exits hint mode instead of
+  being ignored.
+- `Ctrl+W`: the fixed reservation is released only while the built-in Browser page has
+  focus, so `Ctrl+W` closes that Browser page; outside the Browser it still does not
+  close the application window.
+
 ## 1.1.0 — 2026-11-09
 
 - Vimium-style link hints: `f` labels visible conversation links, typing a label opens

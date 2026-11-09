@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Vim 导航",
-    "description": "以 Vim 风格浏览 Harness：j/k 滚动，kk 加载更早历史，h/l 切换焦点，i 输入，f 选择链接，Ctrl+J/K 跳转消息，gg/G 到顶部/底部，Ctrl+F 搜索会话，空格/Enter 选择并保留模式。"
+    "description": "以 Vim 风格浏览 Harness：j/k 线性滚动，kk 加载更早历史，f 选择链接，Ctrl+J/K 跳转消息，gg/G 到顶部/底部，Ctrl+F 搜索会话，空格/Enter 选择并保留模式；Ctrl+W 仅在内置浏览器页关闭该页。"
   }
 }
