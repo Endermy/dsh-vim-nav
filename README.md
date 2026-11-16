@@ -14,6 +14,8 @@ drops you into Insert unexpectedly.
   post-release glide. Releasing the key stops on the next frame.
 - **`kk` at the top loads earlier history** — uses the host's own "load earlier" control
   and releases the host's paging position hold on the next scroll key.
+- **Mouse selection syncs the workspace cursor** — clicking a workspace or session row
+  moves the Vim cursor to that row; keyboard focus inside the list does the same.
 - **Panel focus** — `h`/`l` move left/right across the workspace, the conversation, and
   the built-in Browser. From the conversation, `l` focuses the Browser and `h` the
   workspace; from the Browser, `h` returns to the conversation when the main page has
@@ -168,6 +170,7 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `h`/`l` 切换工作区/对话焦点，`i` 进入输入框，`jk` 退出编辑，`dd` 清空草稿
 - `Ctrl+J`/`Ctrl+K` 跳当前会话的下一条/上一条消息，`gg`/`G` 到会话顶部/底部
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
+- 鼠标点选工作区/会话行时，Vim 光标同步到该行；列表内的键盘聚焦同样同步
 - 工作区列表里 `c` `x` 归档光标所在会话（走该行的归档按钮；运行中的会话会弹宿主的停止并归档确认；归档后光标移到相邻行）
 - `h`/`l` 在 工作区 ← 对话 → 内置浏览器 之间移动焦点；对话里 `l` 聚焦浏览器，浏览器里 `h` 回对话（主界面有焦点时）
 - 桌面端内置浏览器页注入 Vim 层：`j`/`k` 线性滚动、`gg`/`G`、`f` 链接提示；输入框不拦截；页内 `h`/`l` 不拦截、交给页面；主界面 `h`/`l` 三栏焦点不变

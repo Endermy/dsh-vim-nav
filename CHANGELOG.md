@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.1 — 2026-11-16
+
+- Mouse selection in the workspace list now moves the Vim cursor to the clicked
+  workspace/session row. The same sync runs when focus enters a row, so keyboard focus
+  and pointer selection no longer leave the ring on an older row.
+
 ## 1.4.0 — 2026-11-09
 
 - Browser focus return: while the built-in Browser page has focus, the plugin registers

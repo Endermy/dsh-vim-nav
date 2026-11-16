@@ -639,6 +639,18 @@ window.__ModuleLoader__.load({
       store.set({ cursor: row.dataset.rowKey });
     }
 
+    /** The workspace/session row a pointer or focus target belongs to. */
+    function workspaceRowAt(target) {
+      if (!(target instanceof Element)) return null;
+      const row = target.closest('[data-row-key]');
+      if (!(row instanceof HTMLElement)) return null;
+      const key = row.dataset.rowKey;
+      if (key === undefined || (!key.startsWith('session:') && !key.startsWith('workspace:'))) return null;
+      const sidebar = panelElement('sidebar');
+      if (sidebar === null || !sidebar.contains(row)) return null;
+      return row;
+    }
+
     function moveWorkspace(store, direction) {
       const rows = workspaceRows();
       if (rows.length === 0) return false;
@@ -1437,6 +1449,7 @@ window.__ModuleLoader__.load({
         const sidebar = panelElement('sidebar');
         if (sidebar !== null && sidebar.contains(target)) {
           if (store.get().panel !== 'workspace') store.set({ panel: 'workspace' });
+          syncWorkspaceCursor(target);
           return;
         }
         const main = panelElement('main');
@@ -1460,6 +1473,13 @@ window.__ModuleLoader__.load({
         driver.stop();
       }
 
+      function syncWorkspaceCursor(target) {
+        const row = workspaceRowAt(target);
+        if (row === null) return false;
+        if (store.get().cursor !== row.dataset.rowKey) store.set({ cursor: row.dataset.rowKey });
+        return true;
+      }
+
       function handlePointerDown(event) {
         const target = event.target;
         if (!(target instanceof Element)) return;
@@ -1481,7 +1501,7 @@ window.__ModuleLoader__.load({
         const sidebar = panelElement('sidebar');
         if (sidebar !== null && sidebar.contains(target)) {
           if (store.get().panel !== 'workspace') store.set({ panel: 'workspace' });
-          ensureWorkspaceCursor(store);
+          if (!syncWorkspaceCursor(target)) ensureWorkspaceCursor(store);
           return;
         }
         const main = panelElement('main');
