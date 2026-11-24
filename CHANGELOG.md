@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.2 — 2026-11-24
+
+- The workspace cursor now includes the `overflow:<workspace>` row — the
+  `展开其余 N 个会话` / `Show N more sessions` button. `j`/`k` can select it and
+  `Space`/`Enter` expands (or collapses) the batch; pointer selection syncs the cursor
+  to it as well.
+- `cx` still only applies to real session rows; the overflow row is not archivable.
+
 ## 1.4.1 — 2026-11-16
 
 - Mouse selection in the workspace list now moves the Vim cursor to the clicked

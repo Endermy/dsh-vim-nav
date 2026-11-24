@@ -450,7 +450,7 @@ window.__ModuleLoader__.load({
         if (!(element instanceof HTMLElement)) continue;
         const key = element.dataset.rowKey;
         if (key === undefined) continue;
-        if (!key.startsWith('session:') && !key.startsWith('workspace:')) continue;
+        if (!key.startsWith('session:') && !key.startsWith('workspace:') && !key.startsWith('overflow:')) continue;
         if (!isVisible(element)) continue;
         rows.push(element);
       }
@@ -645,7 +645,7 @@ window.__ModuleLoader__.load({
       const row = target.closest('[data-row-key]');
       if (!(row instanceof HTMLElement)) return null;
       const key = row.dataset.rowKey;
-      if (key === undefined || (!key.startsWith('session:') && !key.startsWith('workspace:'))) return null;
+      if (key === undefined || (!key.startsWith('session:') && !key.startsWith('workspace:') && !key.startsWith('overflow:'))) return null;
       const sidebar = panelElement('sidebar');
       if (sidebar === null || !sidebar.contains(row)) return null;
       return row;
