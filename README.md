@@ -18,7 +18,9 @@ drops you into Insert unexpectedly.
   focused, `n` starts a new session in the workspace under the Vim cursor: a session row
   resolves to its own workspace, a workspace row to its id, and an overflow row to that
   group's workspace. With no cursor it falls back to the host's current/recent
-  workspace.
+  workspace. Once the host opens the new session, the Vim cursor moves to its sidebar
+  row (the app's selected row or the opened session id), so the next `j`/`k`/`cx` acts
+  on the new session.
 - **Mouse selection syncs the workspace cursor** — clicking a workspace or session row
   moves the Vim cursor to that row; keyboard focus inside the list does the same.
 - **Expand hidden sessions** — the workspace cursor also visits the
@@ -180,7 +182,7 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `h`/`l` 切换工作区/对话焦点，`i` 进入输入框，`jk` 退出编辑，`dd` 清空草稿
 - `Ctrl+J`/`Ctrl+K` 跳当前会话的下一条/上一条消息，`gg`/`G` 到会话顶部/底部
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
-- 工作区面板按 `n` 在光标所在工作区新建会话：会话行取它所属工作区，工作区行取该 id，溢出（展开其余会话）行取该组工作区；无光标时回退到宿主当前/最近工作区
+- 工作区面板按 `n` 在光标所在工作区新建会话：会话行取它所属工作区，工作区行取该 id，溢出（展开其余会话）行取该组工作区；无光标时回退到宿主当前/最近工作区；宿主打开新会话后，Vim 光标会移到新会话行（按宿主选中行/当前会话 id 解析），后续 j/k/cx 作用于新会话
 - 鼠标点选工作区/会话行时，Vim 光标同步到该行；列表内的键盘聚焦同样同步
 - 工作区光标会经过 `展开其余 N 个会话` 行；`j`/`k` 移过去，`Space`/`Enter` 展开下一批（全部展开后该行显示 `收起`）
 - 工作区列表里 `c` `x` 归档光标所在会话（走该行的归档按钮；运行中的会话会弹宿主的停止并归档确认；归档后光标移到相邻行）

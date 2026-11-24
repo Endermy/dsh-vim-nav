@@ -901,6 +901,7 @@ window.__ModuleLoader__.load({
       let pendingKAt = 0;
       let pendingArchiveAt = 0;
       let pagingReleaseNeeded = false;
+      let newSessionTimer = 0;
       /** Active Vimium-style link hint session, or null. */
       let hintSession = null;
       let expansionTimer = 0;
@@ -965,6 +966,58 @@ window.__ModuleLoader__.load({
         clearMetaSafety();
       }
 
+      function selectedSessionRow() {
+        for (const row of workspaceRows()) {
+          const key = row.dataset.rowKey ?? '';
+          if (key.startsWith('session:') && row.getAttribute('aria-selected') === 'true') return row;
+        }
+        return null;
+      }
+
+      function selectNewSessionWhenReady(beforeKey, beforeId) {
+        if (newSessionTimer !== 0) {
+          window.clearInterval(newSessionTimer);
+          newSessionTimer = 0;
+        }
+        let attempts = 0;
+        const finish = (row) => {
+          if (newSessionTimer !== 0) {
+            window.clearInterval(newSessionTimer);
+            newSessionTimer = 0;
+          }
+          store.set({ mode: 'normal', panel: 'workspace', cursor: row.dataset.rowKey });
+          row.scrollIntoView({ block: 'nearest' });
+        };
+        newSessionTimer = window.setInterval(() => {
+          attempts += 1;
+          const selected = selectedSessionRow();
+          const selectedKey = selected?.dataset.rowKey ?? null;
+          const currentId = conversationSessionId();
+          if (selectedKey !== null && selectedKey !== beforeKey) {
+            finish(selected);
+            return;
+          }
+          if (currentId !== '' && currentId !== beforeId) {
+            const row = findWorkspaceRow(`session:${currentId}`);
+            if (row !== null) {
+              finish(row);
+              return;
+            }
+          }
+          if (attempts >= 10) {
+            const row = currentId === '' ? null : findWorkspaceRow(`session:${currentId}`);
+            if (row !== null) {
+              finish(row);
+              return;
+            }
+          }
+          if (attempts >= 40) {
+            window.clearInterval(newSessionTimer);
+            newSessionTimer = 0;
+          }
+        }, 100);
+      }
+
       function newSessionWorkspaceId() {
         const row = findWorkspaceRow(store.get().cursor);
         if (row === null) return undefined;
@@ -982,7 +1035,11 @@ window.__ModuleLoader__.load({
       function newSessionInCursorWorkspace() {
         if (store.get().panel !== 'workspace') return false;
         if (typeof workspaceApi.startSession !== 'function') return false;
+        const beforeRow = selectedSessionRow();
+        const beforeKey = beforeRow?.dataset.rowKey ?? null;
+        const beforeId = conversationSessionId();
         workspaceApi.startSession(newSessionWorkspaceId());
+        selectNewSessionWhenReady(beforeKey, beforeId);
         return true;
       }
 
@@ -1546,10 +1603,14 @@ window.__ModuleLoader__.load({
         clearMetaSafety();
         scrollKey = null;
         pendingArchiveAt = 0;
+        if (newSessionTimer !== 0) {
+          window.clearInterval(newSessionTimer);
+          newSessionTimer = 0;
+        }
         driver.stop();
       }
 
-      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, returnFromBrowser, newSessionWorkspaceId, dispose };
+      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, returnFromBrowser, dispose };
     }
 
     // #endregion

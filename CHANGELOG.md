@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.1 — 2026-11-25
+
+- After `n` creates/opens a session, the Vim cursor now follows the new session row:
+  it polls the sidebar's selected session row and the opened conversation session id,
+  then selects that row (or the current row when the host reuses an existing blank
+  session). The row is scrolled into view.
+
 ## 1.5.0 — 2026-11-24
 
 - Workspace `n`: start a new session in the workspace under the Vim cursor. Session rows
