@@ -893,7 +893,7 @@ window.__ModuleLoader__.load({
 
     // #region Input controller
 
-    function createController(store, layout, draftHolder, driver) {
+    function createController(store, layout, draftHolder, driver, workspaceApi = {}) {
       let scrollKey = null;
       let lastJAt = 0;
       let jRun = 0;
@@ -963,6 +963,27 @@ window.__ModuleLoader__.load({
         pendingGAt = 0;
         pendingKAt = 0;
         clearMetaSafety();
+      }
+
+      function newSessionWorkspaceId() {
+        const row = findWorkspaceRow(store.get().cursor);
+        if (row === null) return undefined;
+        const key = row.dataset.rowKey ?? '';
+        if (key.startsWith('workspace:')) return key.slice('workspace:'.length);
+        if (key.startsWith('session:')) {
+          return workspaceApi.workspaceIdForSession?.(key.slice('session:'.length));
+        }
+        if (key.startsWith('overflow:')) {
+          return workspaceApi.workspaceIdForOverflow?.(key.slice('overflow:'.length));
+        }
+        return undefined;
+      }
+
+      function newSessionInCursorWorkspace() {
+        if (store.get().panel !== 'workspace') return false;
+        if (typeof workspaceApi.startSession !== 'function') return false;
+        workspaceApi.startSession(newSessionWorkspaceId());
+        return true;
       }
 
       function archiveWorkspaceCursor() {
@@ -1392,6 +1413,9 @@ window.__ModuleLoader__.load({
           case 'f':
             handled = startHints();
             break;
+          case 'n':
+            handled = newSessionInCursorWorkspace();
+            break;
           case 'c': {
             if (store.get().panel === 'workspace') {
               const row = findWorkspaceRow(store.get().cursor);
@@ -1525,7 +1549,7 @@ window.__ModuleLoader__.load({
         driver.stop();
       }
 
-      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, returnFromBrowser, dispose };
+      return { handleKeyDown, handleKeyUp, handleFocusIn, handlePointerDown, handleWindowBlur, cancelScroll, jumpMessage, handleHintKey, refreshHints, isHinting, noteKey, returnFromBrowser, newSessionWorkspaceId, dispose };
     }
 
     // #endregion
@@ -1758,7 +1782,19 @@ window.__ModuleLoader__.load({
         draftHolder.actions = actions;
       };
       const driver = createScrollDriver();
-      const controller = createController(store, ctx.layout, draftHolder, driver);
+      const controller = createController(store, ctx.layout, draftHolder, driver, {
+        startSession: (workspaceId) => {
+          ctx.uiWorkspace.startSession(workspaceId);
+        },
+        workspaceIdForSession: (sessionId) => {
+          const snapshot = ctx.workspaces.list.getSnapshot();
+          return snapshot.items.find((workspace) => workspace.sessionIds.includes(sessionId))?.workspaceId;
+        },
+        workspaceIdForOverflow: (key) => {
+          const snapshot = ctx.workspaces.list.getSnapshot();
+          return snapshot.items.find((workspace) => workspace.workspaceId === key || `workspace:${workspace.workspaceId}` === key)?.workspaceId;
+        },
+      });
 
       ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'vim-nav: dictionaries');
       const t = ctx.locale.bind(NS);
@@ -2068,7 +2104,7 @@ window.__ModuleLoader__.load({
     }
 
     return {
-      inject: ['slots', 'locale', 'layout', 'shortcuts'],
+      inject: ['slots', 'locale', 'layout', 'shortcuts', 'workspaces', 'uiWorkspace'],
       apply,
     };
   },

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.5.0 — 2026-11-24
+
+- Workspace `n`: start a new session in the workspace under the Vim cursor. Session rows
+  resolve through their workspace membership; workspace rows use their id; overflow rows
+  use the group workspace; no cursor falls back to the host's current/recent workspace.
+- The plugin now injects `workspaces` and `uiWorkspace` for that resolution and the
+  host `startSession(workspaceId)` call.
+
 ## 1.4.2 — 2026-11-24
 
 - The workspace cursor now includes the `overflow:<workspace>` row — the

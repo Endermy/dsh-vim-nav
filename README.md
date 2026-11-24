@@ -14,6 +14,11 @@ drops you into Insert unexpectedly.
   post-release glide. Releasing the key stops on the next frame.
 - **`kk` at the top loads earlier history** — uses the host's own "load earlier" control
   and releases the host's paging position hold on the next scroll key.
+- **New session from the workspace** — in Normal mode with the workspace panel
+  focused, `n` starts a new session in the workspace under the Vim cursor: a session row
+  resolves to its own workspace, a workspace row to its id, and an overflow row to that
+  group's workspace. With no cursor it falls back to the host's current/recent
+  workspace.
 - **Mouse selection syncs the workspace cursor** — clicking a workspace or session row
   moves the Vim cursor to that row; keyboard focus inside the list does the same.
 - **Expand hidden sessions** — the workspace cursor also visits the
@@ -70,6 +75,7 @@ drops you into Insert unexpectedly.
 | `Escape` | Insert | Exit Insert |
 | `dd` | Normal | Clear the composer draft |
 | `c` `x` | Normal (workspace) | Archive the session under the cursor |
+| `n` | Normal (workspace) | New session in the workspace under the cursor |
 | `Ctrl+J` | Any | Next top-level message in this conversation |
 | `Ctrl+K` | Any | Previous top-level message in this conversation |
 | `gg` | Normal | Conversation top |
@@ -174,6 +180,7 @@ Edit `client.js`, then reinstall/reload the bundle in the profile. The UI is ren
 - `h`/`l` 切换工作区/对话焦点，`i` 进入输入框，`jk` 退出编辑，`dd` 清空草稿
 - `Ctrl+J`/`Ctrl+K` 跳当前会话的下一条/上一条消息，`gg`/`G` 到会话顶部/底部
 - `f` 显示当前可见对话链接的提示字母，输入字母即可打开；输入不成提示的键会退出提示模式，Esc 取消
+- 工作区面板按 `n` 在光标所在工作区新建会话：会话行取它所属工作区，工作区行取该 id，溢出（展开其余会话）行取该组工作区；无光标时回退到宿主当前/最近工作区
 - 鼠标点选工作区/会话行时，Vim 光标同步到该行；列表内的键盘聚焦同样同步
 - 工作区光标会经过 `展开其余 N 个会话` 行；`j`/`k` 移过去，`Space`/`Enter` 展开下一批（全部展开后该行显示 `收起`）
 - 工作区列表里 `c` `x` 归档光标所在会话（走该行的归档按钮；运行中的会话会弹宿主的停止并归档确认；归档后光标移到相邻行）
